@@ -1,0 +1,263 @@
+{
+  "name": "n8n_email_chatbot(generic)",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -368,
+        0
+      ],
+      "id": "68c0808a-7d75-4dd6-823d-f46e6612cb9a",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0giCfsbvyrw5J7iF",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f929ba7d-5cfb-4293-8775-b5723c35b92d",
+              "leftValue": "={{$json.labelIds}}",
+              "rightValue": "bot-replied",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "c4c20ca4-d1a5-4a09-beb1-d3a55efbba2f",
+              "leftValue": "={{$json.from.emailAddress}}",
+              "rightValue": "noreply",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "3b6b0188-6503-4073-8937-af4d05620115",
+              "leftValue": "={{$json.from.emailAddress}}",
+              "rightValue": "no-reply",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "dc9330dd-0ac8-4ff9-9954-0012cf6e5aef",
+              "leftValue": "={{$json.from.emailAddress}}",
+              "rightValue": "mailer-daemon",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "804b014e-5dfc-4490-a745-b98b40642a96",
+              "leftValue": "={{$json.subject}} ",
+              "rightValue": "out of office",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "0ac69fb5-8e34-482f-a711-36e65633ade7",
+              "leftValue": "={{$json.subject}} ",
+              "rightValue": "automatic reply",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "2081db12-853e-4f72-b4b8-e62fa67b6817",
+              "leftValue": "={{$json.subject}} ",
+              "rightValue": "auto-reply",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": false
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -160,
+        0
+      ],
+      "id": "5ef48620-1908-43e5-9ad7-4ec59cf8e56f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "message": "={{ $json.choices[0].message.content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        256,
+        0
+      ],
+      "id": "36d0e379-5701-481b-b838-36728b74e9a2",
+      "name": "Reply to a message",
+      "webhookId": "caeea381-696b-4dd4-8eb9-14947a9a26c0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0giCfsbvyrw5J7iF",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"openrouter/free\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are replying to emails on behalf of ILMIX AI. Write only the email body — do not include a subject line, do not write 'Subject:' anywhere, and do not restate the original subject. Be concise, warm, and professional. If the email lacks enough detail to answer specifically, ask a clarifying question instead of guessing. Do not use placeholder brackets like [Your Name] or [Number] — if you don't have a real detail, phrase it generally instead of inventing a placeholder. Sign off as 'ILMIX AI'.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Email subject: {{ $('Gmail Trigger').item.json.subject }}\\n\\nEmail content: {{ $('Gmail Trigger').item.json.snippet }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        64,
+        0
+      ],
+      "id": "f794b7de-c701-4a0b-a80b-629338c831a5",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "xMaIcBaKo9EGAfAT",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": [
+          "Label_7963462833713099591"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        464,
+        0
+      ],
+      "id": "1123b2f0-3503-4984-ad1b-f4e5e08a4347",
+      "name": "Add label to message",
+      "webhookId": "6ffe134b-2075-43e5-a11c-716aa1bfa71f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0giCfsbvyrw5J7iF",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply to a message": {
+      "main": [
+        [
+          {
+            "node": "Add label to message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Reply to a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "f6d774bf-85e3-408d-b69b-913077333f34",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c284c03950ce439d9155c0b6670f21bf42ce258b1b9a63ddf829571c332e3840"
+  },
+  "nodeGroups": [],
+  "id": "n1Y2KQLFroQpAhBA",
+  "tags": []
+}
